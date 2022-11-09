@@ -1,8 +1,6 @@
 import json, sqlite3, click, functools, os, hashlib,time, random, sys
 from flask import Flask, current_app, g, session, redirect, render_template, url_for, request
-
-
-
+from base64 import b64encode
 
 ### DATABASE FUNCTIONS ###
 
@@ -17,6 +15,7 @@ def init_db():
 
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS notes;
+DROP TABLE IF EXISTS messages;
 
 CREATE TABLE notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,16 +28,30 @@ CREATE TABLE notes (
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL,
-    password TEXT NOT NULL
+    passwordHash TEXT NOT NULL,
+    passwordSalt TEXT NOT NULL
 );
 
-INSERT INTO users VALUES(null,"admin", "password");
-INSERT INTO users VALUES(null,"bernardo", "omgMPC");
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    msg TEXT NOT NULL,
+    timestamp DATETIME NOT NULL
+);
+
+INSERT INTO users VALUES(null,"admin", "b236617783eccde7b018031dfef09f8e18fcb16e5ee68d56b6f1147a79d9c67bf292a67f0e25994fe28056d694144233f6ee8a0e94a7fc97407a0e88bbe11530", "eMk1/VTckNjnonWBSrcbqRjas7Z7dnSoPLaFxLswj6E=");
+INSERT INTO users VALUES(null,"bernardo", "8f235d0c0123ce1c0aecb6fc91e2108e3cfab3820a693b2d05856366780b29775fcfa14eeb6e9ff3a9dc3dc81b848d5c7b136cb548a16c4a3fd437d88b4e8d90", "lKVxVD+XlsNJfkAdbwBOAG4ecX1L+rhRHw+G3aGu89k=");
 INSERT INTO notes VALUES(null,2,"1993-09-23 10:10:10","hello my friend",1234567890);
 INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567891);
 
+
+INSERT INTO messages VALUES(null, "bernardo","Chicken diablo is overrated", "2022-11-9 13:51:10");
+
 """)
 
+# Hashed default users #
+# admin:password
+# bernardo:omgMPC
 
 
 ### APPLICATION SETUP ###
@@ -73,22 +86,22 @@ def notes():
             note = request.form['noteinput']
             db = connect_db()
             c = db.cursor()
-            statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,%s,'%s','%s',%s);""" %(session['userid'],time.strftime('%Y-%m-%d %H:%M:%S'),note,random.randrange(1000000000, 9999999999))
+            statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,?,?,?,?);"""
             print(statement)
-            c.execute(statement)
+            c.execute(statement, (session['userid'],time.strftime('%Y-%m-%d %H:%M:%S'),note,random.randrange(1000000000, 9999999999)))
             db.commit()
             db.close()
         elif request.form['submit_button'] == 'import note':
             noteid = request.form['noteid']
             db = connect_db()
             c = db.cursor()
-            statement = """SELECT * from NOTES where publicID = %s""" %noteid
-            c.execute(statement)
+            statement = "SELECT * from NOTES where publicID = ?"
+            c.execute(statement, [noteid])
             result = c.fetchall()
             if(len(result)>0):
                 row = result[0]
-                statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,%s,'%s','%s',%s);""" %(session['userid'],row[2],row[3],row[4])
-                c.execute(statement)
+                statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,?,?,?,?);"""
+                c.execute(statement, (session['userid'],row[2],row[3],row[4]))
             else:
                 importerror="No such note with that ID!"
             db.commit()
@@ -96,9 +109,9 @@ def notes():
     
     db = connect_db()
     c = db.cursor()
-    statement = "SELECT * FROM notes WHERE assocUser = %s;" %session['userid']
+    statement = "SELECT * FROM notes WHERE assocUser = ?;"
     print(statement)
-    c.execute(statement)
+    c.execute(statement, [session['userid']])
     notes = c.fetchall()
     print(notes)
     
@@ -113,18 +126,23 @@ def login():
         password = request.form['password']
         db = connect_db()
         c = db.cursor()
-        statement = "SELECT * FROM users WHERE username = '%s' AND password = '%s';" %(username, password)
-        c.execute(statement)
+        statement = "SELECT * FROM users WHERE username = ?;"
+        c.execute(statement, [username])
         result = c.fetchall()
 
+        # Compare user input with database hash and salt #
         if len(result) > 0:
-            session.clear()
-            session['logged_in'] = True
-            session['userid'] = result[0][0]
-            session['username']=result[0][1]
-            return redirect(url_for('index'))
+            if check_password(password, result[0][2], result[0][3]):
+                session.clear()
+                session['logged_in'] = True
+                session['userid'] = result[0][0]
+                session['username']=result[0][1]
+                return redirect(url_for('index'))
+            else:
+                error = "Wrong username or password!"
         else:
             error = "Wrong username or password!"
+            
     return render_template('login.html',error=error)
 
 
@@ -134,28 +152,31 @@ def register():
     usererror = ""
     passworderror = ""
     if request.method == 'POST':
-        
-
         username = request.form['username']
         password = request.form['password']
         db = connect_db()
         c = db.cursor()
-        pass_statement = """SELECT * FROM users WHERE password = '%s';""" %password
-        user_statement = """SELECT * FROM users WHERE username = '%s';""" %username
-        c.execute(pass_statement)
-        if(len(c.fetchall())>0):
-            errored = True
-            passworderror = "That password is already in use by someone else!"
+        # pass_statement = "SELECT * FROM users WHERE password = ?;"
+        user_statement = "SELECT * FROM users WHERE username = ?;"
+        #c.execute(pass_statement, [password])
+        #if(len(c.fetchall())>0):
+        #    errored = True
+        #    passworderror = "That password is already in use by someone else!"
 
-        c.execute(user_statement)
+        c.execute(user_statement, [username])
         if(len(c.fetchall())>0):
             errored = True
             usererror = "That username is already in use by someone else!"
 
         if(not errored):
-            statement = """INSERT INTO users(id,username,password) VALUES(null,'%s','%s');""" %(username,password)
+
+            # Hash password to avoid storing plain-text #
+            salt = b64encode(os.urandom(32)).decode('utf-8')
+            hash = hash_password(password, salt)
+
+            statement = "INSERT INTO users(id,username,passwordHash,passwordSalt) VALUES(null,?,?,?);"
             print(statement)
-            c.execute(statement)
+            c.execute(statement, (username,hash,salt))
             db.commit()
             db.close()
             return f"""<html>
@@ -172,6 +193,11 @@ def register():
         db.close()
     return render_template('register.html',usererror=usererror,passworderror=passworderror)
 
+@app.route('/chat/')
+@login_required
+def chats():
+    # get all chat messages
+    return render_template('chat.html')
 
 @app.route("/logout/")
 @login_required
@@ -179,6 +205,12 @@ def logout():
     """Logout: clears the session"""
     session.clear()
     return redirect(url_for('index'))
+
+def hash_password(password, salt):
+    return hashlib.sha512((salt + password).encode('utf-8')).hexdigest()
+
+def check_password(password, hash, salt):
+    return hash_password(password, salt) == hash
 
 if __name__ == "__main__":
     #create database if it doesn't exist yet
@@ -194,3 +226,4 @@ if __name__ == "__main__":
         print("'python3 app.py' (to start on port 5000)")
         print("or")
         print("'sudo python3 app.py 80' (to run on any other port)")
+
