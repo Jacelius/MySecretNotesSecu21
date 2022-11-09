@@ -28,7 +28,7 @@
         background: #eef8ff;
         min-width: 50px;
         padding: 10px;
-        border-radius: 2px;
+        border-radius: 1rem;
         word-break: break-all;
     }
 
@@ -100,10 +100,20 @@
     }
 </style>
 
+{% if session["username"] == chat[1]%}
 <li class="self">
     <div class="msg">
-        <p>Sent by {{ chat[1]}}</p>
-        <p>Message: {{chat[2]}}</p>
+        <p><b>Me</b></p>
+        <p>{{chat[2]}}</p>
         <time>Time: {{ chat[3]}}</time>
     </div>
 </li>
+{% else %}
+<li class="other">
+    <div class="msg">
+        <p><b>{{ chat[1]}}</b></p>
+        <p>{{chat[2]}}</p>
+        <time>Time: {{ chat[3]}}</time>
+    </div>
+</li>
+{% endif %}

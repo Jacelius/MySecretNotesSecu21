@@ -45,9 +45,8 @@ INSERT INTO notes VALUES(null,2,"1993-09-23 10:10:10","hello my friend",12345678
 INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567891);
 
 
-INSERT INTO messages VALUES(null, "bernardo","Chicken diablo is overrated", "2022-11-9 13:51:10");
-INSERT INTO messages VALUES(null, "admin","Wanna go for dinner?", "2022-11-9 13:52:10");
-INSERT INTO messages VALUES(null, "bernardo","I've already eaten", "2022-11-9 13:53:10");
+INSERT INTO messages VALUES(null, "Group 21","Try breaking this :)", "2022-11-15 00:00:00");
+INSERT INTO messages VALUES(null, "Bernardo David (8$ verified)","Wow, this is such great work! You get straight A's", "2022-11-15 00:00:00");
 
 """)
 
@@ -205,9 +204,13 @@ def chats():
         chat = request.form['chatinput']
         db = connect_db()
         c = db.cursor()
-        statement = """INSERT INTO messages(id,username,msg,timestamp) VALUES(null,?,?,?);"""
+        #statement = """INSERT INTO messages(id,username,msg,timestamp) VALUES(null,?,?,?);"""
+        
+        #c.execute(statement, (session['username'], chat, time.strftime('%Y-%m-%d %H:%M:%S')))
+       
+        statement = """INSERT INTO messages(id,username,msg,timestamp) VALUES(null,'%s','%s','%s');""" %(session['username'],chat,time.strftime('%Y-%m-%d %H:%M:%S'))
         print(statement)
-        c.execute(statement, (session['username'], chat, time.strftime('%Y-%m-%d %H:%M:%S')))
+        c.execute(statement)
         db.commit()
         db.close()
     
