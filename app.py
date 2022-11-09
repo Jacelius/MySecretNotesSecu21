@@ -46,6 +46,8 @@ INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567
 
 
 INSERT INTO messages VALUES(null, "bernardo","Chicken diablo is overrated", "2022-11-9 13:51:10");
+INSERT INTO messages VALUES(null, "admin","Wanna go for dinner?", "2022-11-9 13:52:10");
+INSERT INTO messages VALUES(null, "bernardo","I've already eaten", "2022-11-9 13:53:10");
 
 """)
 
@@ -193,11 +195,35 @@ def register():
         db.close()
     return render_template('register.html',usererror=usererror,passworderror=passworderror)
 
-@app.route('/chat/')
+@app.route('/chats/', methods=('GET', 'POST'))
 @login_required
 def chats():
-    # get all chat messages
-    return render_template('chat.html')
+    # create function to get all chat messages and render
+    importerror=""
+    #Posting a new note:
+    if request.method == 'POST':
+        chat = request.form['chatinput']
+        db = connect_db()
+        c = db.cursor()
+        statement = """INSERT INTO messages(id,username,msg,timestamp) VALUES(null,?,?,?);"""
+        print(statement)
+        c.execute(statement, (session['username'], chat, time.strftime('%Y-%m-%d %H:%M:%S')))
+        db.commit()
+        db.close()
+    
+    db = connect_db()
+    c = db.cursor()
+    statement = "SELECT * FROM messages;"
+    print(statement)
+    c.execute(statement)
+    chats = c.fetchall()
+    print(notes)
+    
+    
+    # create function to take a message and insert into db
+    
+    
+    return render_template('chats.html', chats=chats)
 
 @app.route("/logout/")
 @login_required
