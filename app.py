@@ -1,8 +1,11 @@
 import json, sqlite3, click, functools, os, hashlib,time, random, sys
 from flask import Flask, current_app, g, session, redirect, render_template, url_for, request
 from base64 import b64encode
+from pedersen import Pedersen
+import hashlib
 
 ### DATABASE FUNCTIONS ###
+
 
 def connect_db():
     return sqlite3.connect(app.database)
@@ -47,6 +50,7 @@ INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567
 
 INSERT INTO messages VALUES(null, "Group 21","Try breaking this :)", "2022-11-15 00:00:00");
 INSERT INTO messages VALUES(null, "Bernardo David (8$ verified)","Wow, this is such great work! You get straight A's", "2022-11-15 00:00:00");
+INSERT INTO messages VALUES(null, "Torben Pedersen","I sure love the CS Security book.", "1998-05-1 00:00:00");
 
 """)
 
@@ -60,6 +64,21 @@ app = Flask(__name__)
 app.database = "db.sqlite3"
 app.secret_key = os.urandom(32)
 
+### PEDERSEN SETUP ###
+pd = Pedersen()
+
+cs_book_number = int(hashlib.sha256('Computer Security: Principles and Practice, Global Edition'.encode()).hexdigest(), 16)
+torben_number = int(hashlib.sha256('Torben Pedersen'.encode()).hexdigest(), 16)
+
+commit_1, r1 = pd.create_commit(pd.param, cs_book_number, 9781292220611) # ISBN number
+commit_2, r2 = pd.create_commit(pd.param, torben_number, 1978) # Pedersen commitment creation
+
+combined_commit = pd.add(commit_1, commit_2)
+
+opening = pd.open(pd.param, cs_book_number+torben_number, combined_commit, r1+r2)
+print(opening)
+
+
 ### ADMINISTRATOR'S PANEL ###
 def login_required(view):
     @functools.wraps(view)
@@ -71,6 +90,8 @@ def login_required(view):
 
 @app.route("/")
 def index():
+    session['check1'] = False
+    session['check2'] = False
     if not session.get('logged_in'):
         return render_template('index.html')
     else:
@@ -138,6 +159,7 @@ def login():
                 session['logged_in'] = True
                 session['userid'] = result[0][0]
                 session['username']=result[0][1]
+                
                 return redirect(url_for('index'))
             else:
                 error = "Wrong username or password!"
@@ -228,6 +250,16 @@ def chats():
     
     return render_template('chats.html', chats=chats)
 
+@app.route('/admin-commitment/', methods=('GET', 'POST'))
+def open_commit():
+    if request.method == 'POST':
+        if request.form['submit_button'] == 'check1':
+            session['check1'] = True
+        elif request.form['submit_button'] == 'check2':
+            session['check2'] = True
+    
+    return render_template('admin-commitment.html', opening1=session['check1'], opening2=session['check2'])
+
 @app.route("/logout/")
 @login_required
 def logout():
@@ -245,7 +277,12 @@ if __name__ == "__main__":
     #create database if it doesn't exist yet
     if not os.path.exists(app.database):
         init_db()
+        
     runport = 5000
+    
+    
+    
+    
     if(len(sys.argv)==2):
         runport = sys.argv[1]
     try:
