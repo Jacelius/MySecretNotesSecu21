@@ -127,7 +127,7 @@
     }
 
     .notes__body-top-padding {
-        padding-top: 140px;
+        padding-top: 40px;
     }
 
     .notes__body-bottom-padding {
@@ -261,6 +261,63 @@
         font-weight: 700;
         color: #14bf98
     }
+
+    .form_compute {
+        display: flex;
+        margin-bottom: 2rem;
+        align-items: center;
+    }
+
+    .form_compute p {
+        margin: 0;
+
+        font-weight: bold;
+        color: black;
+    }
+
+    .form_compute input {
+        margin-right: 1rem;
+        padding: .5rem 1rem;
+    }
+
+    .form_container {
+        display: flex;
+
+        align-items: center;
+    }
+
+    .password-div {
+        margin-left: 2rem;
+    }
+
+    .admin_password {
+        font-weight: bold;
+        color: green;
+        animation-name: spin;
+        animation-duration: 1000ms;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+        animation-fill-mode: forwards;
+        cursor: none;
+        user-select: none;
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+            opacity: 0%;
+        }
+
+        50% {
+            opacity: 100%;
+        }
+
+        to {
+            transform: rotate(360deg);
+            opacity: 0%;
+
+        }
+    }
 </style>
 
 <head>
@@ -281,53 +338,74 @@
 
 <body style="background-color:#fff;">
     <section class="notes__background-image">
-        <!-- <a href="/logout/" class="notes__logout btn-solid-lg">Logout</a> -->
+        <a href="/" class="notes__logout btn-solid-lg">Landing page</a>
         <article class="notes__background-title-container">
-            <h1 class="notes__title">Admin's service to remember password</h1>
+            <h1 class="notes__title">Admin's password</h1>
             <h2 class="notes__title-user">{{session['username']}}</h2>
         </article>
     </section>
     <section class="notes__body-content notes__body-top-padding">
-
+        <p>The admin of site with questionable security, has recently stopped writing his password down on a PostIT note
+            - Instead he has come up with a brilliant way to find his password when he forgets it.
+            He has unfortunately misunderstood the ideas of multi factor authentication. He believes the multiple
+            factors he should remember is a message, and a randomness. Although questionable security-wise, it does
+            allow him to find his password..</p>
+        <p><i>Hint: The Admin's favorite book in part is due to its lovely ISBN number is Computer Security: Principles
+                and
+                Practice, Global Edition. The book introduces many interesting cryptographic concepts,
+                but the admins favorite is the additively homographic commitment scheme by Torben Pedersen.
+            </i></p>
 
         <div class="header-content">
             <div class="container">
                 <div class="row">
                     <div class="col-lg-12">
-                        <h1>Find first clue</h1>
+
                         <br>
-                        <form action="" method="post">
-                            <input type="text" placeholder="Message" name="username" value="{{
-                  request.form.username }}">
-                            <input type="text" placeholder="Randomness" name="password" value="{{
-                  request.form.password }}">
-                            <button class="btn-solid-lg" type="submit" name="submit_button"
-                                value="check1">Compute</button>
-                        </form>
-                        <p>{{opening1}}</p>
-
-                    </div> <!-- end of col -->
-                </div> <!-- end of row -->
-            </div> <!-- end of container -->
-        </div> <!-- end of header-content -->
-        <div class="header-content">
-            <div class="container">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <h1>Find second clue</h1>
-                        <br>
-                        <form action="" method="post">
-                            <input type="text" placeholder="Message" name="username" value="{{
-                  request.form.username }}">
-                            <input type="text" placeholder="Randomness" name="password" value="{{
-                  request.form.password }}">
-                            <button class="btn-solid-lg" type="submit" name="submit_button"
-                                value="check2">Compute</button>
-
-                        </form>
-                        <p>{{opening2}}</p>
+                        <div class="form_container">
+                            <form action="" method="post">
+                                <h1>First challenge</h1>
+                                <div class="form_compute">
+                                    <input type="text" placeholder="Message" name="msg1" value="{{session['msg1'] }}">
+                                    <input type="text" placeholder="Randomness" name="randomness1"
+                                        value="{{ session['randomness1'] }}">
+                                    {% if opening1 == True %}
+                                    <p style="color: green">{{opening1}}</p>
+                                    {% else %}
+                                    <p style="color: red">{{opening1}}</p>
+                                    {% endif %}
+                                </div>
+                                <h1>Second challenge</h1>
+                                <div class="form_compute">
+                                    <input type="text" placeholder="Message" name="msg2" value="{{
+                                    session['msg2'] }}">
+                                    <input type="text" placeholder="Randomness" name="randomness2" value="{{
+                                    session['randomness2'] }}">
+                                    {% if opening2 == True %}
+                                    <p style="color: green">{{opening2}}</p>
+                                    {% else %}
+                                    <p style="color: red">{{opening2}}</p>
+                                    {% endif %}
 
 
+
+                                </div>
+                                <button class="btn-solid-lg" type="submit" name="submit_button"
+                                    value="check">Compute</button>
+
+                            </form>
+                            <div class="password-div">
+                                {% if opening2 == True and opening1 == True %}
+                                <p>Password:</p>
+                                <p class="admin_password">{{session['admin_password']}}</p>
+
+                                {% else %}
+                                <p>The password will reveal here, when you've found the clues</p>
+
+                                {% endif %}
+
+                            </div>
+                        </div>
                     </div> <!-- end of col -->
                 </div> <!-- end of row -->
             </div> <!-- end of container -->

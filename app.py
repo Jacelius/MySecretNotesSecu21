@@ -14,6 +14,7 @@ def init_db():
     """Initializes the database with our great SQL schema"""
     conn = connect_db()
     db = conn.cursor()
+    
     db.executescript("""
 
 DROP TABLE IF EXISTS users;
@@ -42,7 +43,7 @@ CREATE TABLE messages (
     timestamp DATETIME NOT NULL
 );
 
-INSERT INTO users VALUES(null,"admin", "b236617783eccde7b018031dfef09f8e18fcb16e5ee68d56b6f1147a79d9c67bf292a67f0e25994fe28056d694144233f6ee8a0e94a7fc97407a0e88bbe11530", "eMk1/VTckNjnonWBSrcbqRjas7Z7dnSoPLaFxLswj6E=");
+INSERT INTO users VALUES(null,"admin", "c18a0679dc6b0855a4a37179e31852f1c888d23bbf6989c473b708fd12d90e370a23dd05f94b62cc2f2fb0124e85d656af5cd1bb93571d939a73949c540f6ed7", "eMk1/VTckNjnonWBSrcbqRjas7Z7dnSoPLaFxLswj6E=");
 INSERT INTO users VALUES(null,"bernardo", "8f235d0c0123ce1c0aecb6fc91e2108e3cfab3820a693b2d05856366780b29775fcfa14eeb6e9ff3a9dc3dc81b848d5c7b136cb548a16c4a3fd437d88b4e8d90", "lKVxVD+XlsNJfkAdbwBOAG4ecX1L+rhRHw+G3aGu89k=");
 INSERT INTO notes VALUES(null,2,"1993-09-23 10:10:10","hello my friend",1234567890);
 INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567891);
@@ -67,16 +68,21 @@ app.secret_key = os.urandom(32)
 ### PEDERSEN SETUP ###
 pd = Pedersen()
 
-cs_book_number = int(hashlib.sha256('Computer Security: Principles and Practice, Global Edition'.encode()).hexdigest(), 16)
-torben_number = int(hashlib.sha256('Torben Pedersen'.encode()).hexdigest(), 16)
+def get_hash_from_text(msg):
+    return int(hashlib.sha256(msg.lower().encode()).hexdigest(), 16)
 
-commit_1, r1 = pd.create_commit(pd.param, cs_book_number, 9781292220611) # ISBN number
-commit_2, r2 = pd.create_commit(pd.param, torben_number, 1978) # Pedersen commitment creation
+cs_book_number = get_hash_from_text('Computer Security: Principles and Practice, Global Edition')
+torben_number = get_hash_from_text('Torben Pedersen')
+
+commit_1, r1 = pd.create_commit(pd.param, cs_book_number, get_hash_from_text('9781292220611')) # ISBN number
+commit_2, r2 = pd.create_commit(pd.param, torben_number, get_hash_from_text('1998')) # Pedersen commitment creation
 
 combined_commit = pd.add(commit_1, commit_2)
 
 opening = pd.open(pd.param, cs_book_number+torben_number, combined_commit, r1+r2)
 print(opening)
+
+
 
 
 ### ADMINISTRATOR'S PANEL ###
@@ -90,8 +96,6 @@ def login_required(view):
 
 @app.route("/")
 def index():
-    session['check1'] = False
-    session['check2'] = False
     if not session.get('logged_in'):
         return render_template('index.html')
     else:
@@ -252,13 +256,36 @@ def chats():
 
 @app.route('/admin-commitment/', methods=('GET', 'POST'))
 def open_commit():
+    def check_session(check, msg, randomness):
+        if not session.get(check):
+            session[check] = False
+            session[msg] = ''
+            session[randomness] = ''
+
+    check_session('check1', 'msg1', 'randomness1')
+    check_session('check2', 'msg2', 'randomness2')
+        
+    if not session.get('admin_password'):
+        session['admin_password'] = ''
+        
+    def open_commitment_from_form(msg, randomness, check, commit):
+        session[msg] = request.form[msg].lower()
+        session[randomness] = request.form[randomness]
+        session[check] = pd.open(pd.param, get_hash_from_text(session[msg]), commit, get_hash_from_text(session[randomness]))
+        
     if request.method == 'POST':
-        if request.form['submit_button'] == 'check1':
-            session['check1'] = True
-        elif request.form['submit_button'] == 'check2':
-            session['check2'] = True
+        if request.form['submit_button'] == 'check':
+            open_commitment_from_form('msg1', 'randomness1', 'check1', commit_1)
+            open_commitment_from_form('msg2', 'randomness2', 'check2', commit_2)
+
+    if session.get('check1') == True and session.get('check2') == True:
+        session['admin_password'] = "there's_no_option_e"
+    else:
+        session['admin_password'] = ''
+
     
-    return render_template('admin-commitment.html', opening1=session['check1'], opening2=session['check2'])
+    
+    return render_template('admin-commitment.html', admin_password=session['admin_password'], opening1=session['check1'], opening2=session['check2'], msg1=session['msg1'], msg2=session['msg2'], randomness1=session['randomness1'], randomness2=session['randomness2'])
 
 @app.route("/logout/")
 @login_required
@@ -266,6 +293,7 @@ def logout():
     """Logout: clears the session"""
     session.clear()
     return redirect(url_for('index'))
+
 
 def hash_password(password, salt):
     return hashlib.sha512((salt + password).encode('utf-8')).hexdigest()
@@ -279,10 +307,7 @@ if __name__ == "__main__":
         init_db()
         
     runport = 5000
-    
-    
-    
-    
+
     if(len(sys.argv)==2):
         runport = sys.argv[1]
     try:
@@ -292,4 +317,3 @@ if __name__ == "__main__":
         print("'python3 app.py' (to start on port 5000)")
         print("or")
         print("'sudo python3 app.py 80' (to run on any other port)")
-
